@@ -1,0 +1,429 @@
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .chat-container {
+            width: 90%;
+            max-width: 800px;
+            height: 90vh;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .voice-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            padding: 10px 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #e0e0e0;
+            flex-wrap: wrap;
+        }
+        
+        .voice-toggle {
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .voice-toggle:hover {
+            background: #5568d3;
+        }
+        
+        .voice-toggle.off {
+            background: #999;
+        }
+        
+        .language-select {
+            padding: 8px 16px;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+            color: #667eea;
+            font-weight: bold;
+        }
+        
+        .voice-status {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .speaker-icon {
+            display: inline-block;
+            margin-right: 5px;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .message {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message.user {
+            background: #667eea;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .message.assistant {
+            background: #f1f3f4;
+            color: #333;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+        
+        .message.assistant.streaming {
+            opacity: 0.9;
+        }
+        
+        .chat-input-container {
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .chat-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 24px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        
+        .chat-input:focus {
+            border-color: #667eea;
+        }
+        
+        .send-button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 24px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .send-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 12px 16px;
+        }
+        
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background: #999;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite;
+        }
+        
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes bounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            AI Chat with Claude Sonnet 4.5
+        </div>
+        <div class="voice-controls">
+            <button class="voice-toggle" id="voiceToggle">
+                <span class="speaker-icon">🔊</span>
+                音声ON
+            </button>
+            <select class="language-select" id="languageSelect">
+                <option value="ja">🇯🇵 日本語</option>
+                <option value="en">🇺🇸 English</option>
+            </select>
+            <span class="voice-status" id="voiceStatus"></span>
+        </div>
+        <div class="chat-messages" id="messages"></div>
+        <div class="chat-input-container">
+            <input 
+                type="text" 
+                class="chat-input" 
+                id="input" 
+                placeholder="メッセージを入力..."
+                autocomplete="off"
+            />
+            <button class="send-button" id="send">送信</button>
+        </div>
+    </div>
+
+    <script src="https://js.puter.com/v2/"></script>
+    <script>
+        const messagesDiv = document.getElementById('messages');
+        const inputField = document.getElementById('input');
+        const sendButton = document.getElementById('send');
+        const voiceToggle = document.getElementById('voiceToggle');
+        const voiceStatus = document.getElementById('voiceStatus');
+        const languageSelect = document.getElementById('languageSelect');
+        
+        let isProcessing = false;
+        let voiceEnabled = true;
+        let currentSpeech = null;
+        let selectedLanguage = 'ja'; // デフォルトは日本語
+        
+        // 音声合成の初期化チェック
+        if (!('speechSynthesis' in window)) {
+            voiceStatus.textContent = '⚠️ お使いのブラウザは音声合成に対応していません';
+            voiceToggle.disabled = true;
+            languageSelect.disabled = true;
+        }
+        
+        // 言語選択の変更イベント
+        languageSelect.addEventListener('change', (e) => {
+            selectedLanguage = e.target.value;
+            // 再生中の音声を停止
+            if (currentSpeech) {
+                speechSynthesis.cancel();
+            }
+        });
+        
+        // 音声ON/OFFトグル
+        voiceToggle.addEventListener('click', () => {
+            voiceEnabled = !voiceEnabled;
+            if (voiceEnabled) {
+                voiceToggle.innerHTML = '<span class="speaker-icon">🔊</span>音声ON';
+                voiceToggle.classList.remove('off');
+            } else {
+                voiceToggle.innerHTML = '<span class="speaker-icon">🔇</span>音声OFF';
+                voiceToggle.classList.add('off');
+                // 再生中の音声を停止
+                if (currentSpeech) {
+                    speechSynthesis.cancel();
+                }
+            }
+        });
+        
+        // テキストを音声で読み上げる関数
+        function speakText(text) {
+            if (!voiceEnabled || !text) return;
+            
+            // 既存の音声を停止
+            speechSynthesis.cancel();
+            
+            // マークダウン記号を除去
+            let cleanText = text
+                .replace(/\*\*/g, '') // **太字** を除去
+                .replace(/\*/g, '')   // *斜体* を除去
+                .replace(/#{1,6}\s/g, '') // # 見出し記号を除去
+                .replace(/:/g, ''); // コロンを除去
+            
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            
+            // 選択された言語の音声を設定
+            const voices = speechSynthesis.getVoices();
+            let targetVoice;
+            
+            if (selectedLanguage === 'ja') {
+                targetVoice = voices.find(voice => voice.lang.startsWith('ja'));
+                utterance.lang = 'ja-JP';
+            } else {
+                targetVoice = voices.find(voice => voice.lang.startsWith('en'));
+                utterance.lang = 'en-US';
+            }
+            
+            if (targetVoice) {
+                utterance.voice = targetVoice;
+            }
+            
+            utterance.rate = 1.0; // 話す速度
+            utterance.pitch = 1.0; // 声の高さ
+            utterance.volume = 1.0; // 音量
+            
+            utterance.onstart = () => {
+                currentSpeech = utterance;
+                const langLabel = selectedLanguage === 'ja' ? '日本語' : 'English';
+                voiceStatus.textContent = `🎤 読み上げ中... (${langLabel})`;
+            };
+            
+            utterance.onend = () => {
+                currentSpeech = null;
+                voiceStatus.textContent = '';
+            };
+            
+            utterance.onerror = (event) => {
+                console.error('Speech error:', event);
+                currentSpeech = null;
+                voiceStatus.textContent = '';
+            };
+            
+            speechSynthesis.speak(utterance);
+        }
+        
+        // 音声リストの読み込みを待つ
+        if (speechSynthesis.getVoices().length === 0) {
+            speechSynthesis.addEventListener('voiceschanged', () => {
+                // 音声リストが読み込まれた
+            });
+        }
+
+        function addMessage(text, isUser) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
+            messageDiv.innerHTML = text.replaceAll('\n', '<br>');
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            return messageDiv;
+        }
+
+        function showTypingIndicator() {
+            const indicator = document.createElement('div');
+            indicator.className = 'message assistant typing-indicator';
+            indicator.id = 'typing-indicator';
+            indicator.innerHTML = '<span></span><span></span><span></span>';
+            messagesDiv.appendChild(indicator);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) indicator.remove();
+        }
+
+        async function sendMessage() {
+            if (isProcessing) return;
+            
+            const message = inputField.value.trim();
+            if (!message) return;
+
+            isProcessing = true;
+            sendButton.disabled = true;
+            inputField.disabled = true;
+
+            addMessage(message, true);
+            inputField.value = '';
+
+            showTypingIndicator();
+
+            try {
+                const chat_resp = await puter.ai.chat(message, {
+                    model: 'claude-sonnet-4.5',
+                    stream: true
+                });
+
+                removeTypingIndicator();
+                
+                let assistantMessage = addMessage('', false);
+                assistantMessage.classList.add('streaming');
+                let fullText = '';
+
+                for await (const part of chat_resp) {
+                    if (part?.text) {
+                        fullText += part.text;
+                        assistantMessage.innerHTML = fullText.replaceAll('\n', '<br>');
+                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                    }
+                }
+
+                assistantMessage.classList.remove('streaming');
+                
+                // AIの回答を音声で読み上げ
+                speakText(fullText);
+            } catch (error) {
+                removeTypingIndicator();
+                addMessage('エラーが発生しました: ' + error.message, false);
+            }
+
+            isProcessing = false;
+            sendButton.disabled = false;
+            inputField.disabled = false;
+            inputField.focus();
+        }
+
+        sendButton.addEventListener('click', sendMessage);
+        
+        inputField.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // 初期フォーカス
+        inputField.focus();
+    </script>
+</body>
+</html>
